@@ -1,0 +1,26 @@
+import { defineCustomElement } from '../chunks/vidstack-Bu2kfzUd.js';
+import { MediaAudioLayoutElement } from './templates/vidstack-audio-layout.js';
+import { MediaVideoLayoutElement } from './templates/vidstack-video-layout.js';
+import { MediaPlyrLayoutElement } from './templates/plyr-layout.js';
+import '../chunks/vidstack-DBy9lvwr.js';
+import '../chunks/vidstack-DFImIcIL.js';
+import '../chunks/vidstack-C_l97D5j.js';
+import '@floating-ui/dom';
+import 'lit-html';
+import '../chunks/vidstack-Bcmx8pmK.js';
+import 'lit-html/directives/if-defined.js';
+import 'lit-html/directives/unsafe-svg.js';
+import 'lit-html/async-directive.js';
+import '../chunks/vidstack-28cU2iGK.js';
+import '../chunks/vidstack-BTM4ERc7.js';
+import 'lit-html/directives/ref.js';
+import '../chunks/vidstack-zG6PIeGg.js';
+import '../chunks/vidstack-CjhKISI0.js';
+import '../chunks/vidstack-CwTj4H1w.js';
+import 'lit-html/directives/keyed.js';
+import '../chunks/vidstack-C6QxXqZ8.js';
+import 'lit-html/directives/unsafe-html.js';
+
+defineCustomElement(MediaAudioLayoutElement);
+defineCustomElement(MediaVideoLayoutElement);
+defineCustomElement(MediaPlyrLayoutElement);
