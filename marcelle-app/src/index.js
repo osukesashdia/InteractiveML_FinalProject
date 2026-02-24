@@ -170,6 +170,7 @@ const decisionSummary = text(
 let latestTrainingImage = null;
 let latestTrainingThumbnail = null;
 let latestPredImage = null;
+let latestPredThumbnail = null;
 
 trainingInput.$images.subscribe((img) => {
   latestTrainingImage = img;
@@ -189,6 +190,10 @@ predInput.$images.subscribe((img) => {
     `<span style="color:#27ae60">✔ Image ready.</span> ` +
     `Choose an identify method below.`
   );
+});
+
+predInput.$thumbnails.subscribe((thumb) => {
+  latestPredThumbnail = thumb;
 });
 
 // ---------------------------------------------------------------------------
@@ -555,6 +560,24 @@ async function enrichBeverage(label, confidence, source) {
     ? 'Pretrained MobileNet (ImageNet)'
     : 'Custom KNN Model';
 
+  // Read taste profile saved on the Welcome page and personalise the prompt.
+  let tasteCtx = '';
+  let tasteTag = '';
+  try {
+    const profile = JSON.parse(localStorage.getItem('beverage-taste-profile') || '{}');
+    if (profile.strength) {
+      tasteCtx =
+        `The user prefers ${profile.strength.toLowerCase()}, ` +
+        `${(profile.sweetness || '').toLowerCase()}, ` +
+        `and ${(profile.flavor || '').toLowerCase()} drinks. ` +
+        `Tailor the Description and Food Pairings to reflect these preferences.\n\n`;
+      tasteTag =
+        `<div style="font-size:0.78em;color:#888;margin-bottom:6px">` +
+        `Personalized for: ${profile.strength} · ${profile.sweetness} · ${profile.flavor}` +
+        `</div>`;
+    }
+  } catch { /* profile unreadable — proceed without personalization */ }
+
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     return `
@@ -571,6 +594,7 @@ async function enrichBeverage(label, confidence, source) {
   const prompt =
     `You are an expert on alcoholic beverages. A user photographed a beverage ` +
     `identified as "${label}" (${Math.round(confidence * 100)}% confidence).\n\n` +
+    tasteCtx +
     `Provide concise, accessible information in plain HTML (no markdown, no code fences). ` +
     `Use this exact format:\n\n` +
     `<strong>Category:</strong> [main category and subcategory]<br>\n` +
@@ -585,6 +609,7 @@ async function enrichBeverage(label, confidence, source) {
 
   return `
     <div style="padding:12px;background:#f8f9fa;border-radius:6px">
+      ${tasteTag}
       <strong>Classification:</strong> ${label}<br>
       <strong>Confidence:</strong> ${Math.round(confidence * 100)}%<br>
       <strong>Model used:</strong> ${sourceLabel} + Gemini (${usedModel})
@@ -594,11 +619,97 @@ async function enrichBeverage(label, confidence, source) {
 }
 
 // ---------------------------------------------------------------------------
+// Active learning correction loop (Step 5 — Decision page)
+// If the user thinks the prediction is wrong they select the real label and
+// submit. The image features are saved into the training set and the KNN is
+// retrained immediately — closing the human-in-the-loop feedback cycle.
+// ---------------------------------------------------------------------------
+const correctionHeader = text(`
+  <div style="margin-top:20px;padding:14px;background:#f0f7ff;border:1px solid #b0d0f0;border-radius:8px">
+    <strong>Was the prediction wrong? Teach the AI.</strong><br>
+    <span style="font-size:0.85em;color:#555">
+      Select the correct label below and click <em>Save Correction</em>.
+      The KNN model will retrain immediately using your input.
+    </span>
+  </div>`);
+
+const correctionLabelSelect = select(ALCOHOL_LABELS, ALCOHOL_LABELS[0]);
+const submitCorrectionBtn = button('Save Correction & Retrain');
+const correctionStatus = text('');
+
+submitCorrectionBtn.$click.subscribe(async () => {
+  if (!latestPredImage) {
+    correctionStatus.$value.set(
+      '<span style="color:#e67e22">⚠ No prediction image available. Identify a beverage first (Step 3).</span>'
+    );
+    return;
+  }
+  const correctLabel = correctionLabelSelect.$value.value;
+  correctionStatus.$value.set('<em>Saving correction and retraining…</em>');
+  try {
+    const feats = await featureExtractor.process(latestPredImage);
+    await trainingSet.create({ x: feats, y: correctLabel, thumbnail: latestPredThumbnail });
+    await classifier.train(trainingSet);
+    const count = trainingSet.$count.value;
+    correctionStatus.$value.set(`
+      <div style="padding:10px;background:#f0fff4;border:1px solid #27ae60;border-radius:6px;margin-top:6px">
+        <span style="color:#27ae60">✔ Saved as <strong>${correctLabel}</strong>.</span><br>
+        <span style="font-size:0.85em;color:#444">
+          KNN retrained on ${count} example${count !== 1 ? 's' : ''}.
+          The model will be more accurate next time you identify this beverage.
+        </span>
+      </div>`);
+  } catch (err) {
+    correctionStatus.$value.set(
+      `<span style="color:#c0392b">⚠ Could not save correction: ${err.message}</span>`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Taste Profile — persisted in localStorage, injected into Gemini enrichment.
+// Three binary dimensions kept intentionally simple so the onboarding is fast.
+// ---------------------------------------------------------------------------
+const TASTE_PROFILE_KEY = 'beverage-taste-profile';
+
+const _savedProfile = (() => {
+  try { return JSON.parse(localStorage.getItem(TASTE_PROFILE_KEY) || '{}'); }
+  catch { return {}; }
+})();
+
+const strengthSelect  = select(['Mild', 'Strong'],           _savedProfile.strength  || 'Mild');
+const sweetnessSelect = select(['Sweet', 'Dry'],             _savedProfile.sweetness || 'Sweet');
+const flavorSelect    = select(['Fruity', 'Earthy / Smoky'], _savedProfile.flavor    || 'Fruity');
+
+const tasteProfileHeader = text(`
+  <div style="margin-top:16px;padding:14px;background:#fff8f0;border:1px solid #f0c080;border-radius:8px">
+    <strong>Your Taste Preferences</strong><br>
+    <span style="font-size:0.85em;color:#555">
+      Personalizes beverage descriptions and food pairings from the AI.<br>
+      <span style="display:inline-block;margin-top:5px">
+        Choose one option for each:
+        <em>Strength</em> &nbsp;·&nbsp; <em>Sweetness</em> &nbsp;·&nbsp; <em>Flavor</em>
+      </span>
+    </span>
+  </div>`);
+
+// Auto-save all three dimensions whenever any one changes.
+[strengthSelect, sweetnessSelect, flavorSelect].forEach((sel) => {
+  sel.$value.subscribe(() => {
+    localStorage.setItem(TASTE_PROFILE_KEY, JSON.stringify({
+      strength:  strengthSelect.$value.value,
+      sweetness: sweetnessSelect.$value.value,
+      flavor:    flavorSelect.$value.value,
+    }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Wizard layout — 6 pages
 // ---------------------------------------------------------------------------
 const app = wizard();
 
-// Page 1: Welcome
+// Page 1: Welcome + Taste Profile onboarding
 app
   .page()
   .title('Beverage Identifier')
@@ -608,8 +719,10 @@ app
     'Two AI models are available:\n' +
     '• Quick Identify uses a pretrained model — works immediately, no setup.\n' +
     '• Custom KNN uses your own labeled examples — more accurate for specific beverages.\n\n' +
-    'Follow the steps to get started.'
-  );
+    'Set your taste preferences below, then follow the steps to get started.'
+  )
+  .use(tasteProfileHeader)
+  .use([strengthSelect, sweetnessSelect, flavorSelect]);
 
 // Page 2: Label training examples (for KNN)
 app
@@ -706,6 +819,7 @@ acceptBtn.$click.subscribe(async () => {
 
 retryBtn.$click.subscribe(() => {
   resultPanel.$value.set('');
+  correctionStatus.$value.set('');
   tierMessage.$value.set('<em>Run "Identify with KNN" to see custom results.</em>');
   warningPanel.$value.set('');
   pretrainedTierMsg.$value.set('<em>Run "Quick Identify" to see pretrained results.</em>');
@@ -736,7 +850,11 @@ app
   )
   .use(decisionSummary)
   .use([acceptBtn, retryBtn, flagBtn])
-  .use(resultPanel);
+  .use(resultPanel)
+  .use(correctionHeader)
+  .use(correctionLabelSelect)
+  .use(submitCorrectionBtn)
+  .use(correctionStatus);
 
 // ---------------------------------------------------------------------------
 // Decision summary — rebuilt each time the user navigates to Step 5
@@ -766,9 +884,12 @@ function updateDecisionSummary() {
     </div>`);
 }
 
-// Rebuild the summary whenever the user arrives on the Decision page (index 5)
+// Rebuild the summary and clear stale correction status when arriving on the Decision page
 app.$current.subscribe((idx) => {
-  if (idx === 5) updateDecisionSummary();
+  if (idx === 5) {
+    updateDecisionSummary();
+    correctionStatus.$value.set('');
+  }
 });
 
 app.show();
