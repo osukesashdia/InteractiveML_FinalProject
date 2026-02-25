@@ -1,0 +1,443 @@
+\documentclass[10pt,twocolumn]{article}
+
+% ── Packages ────────────────────────────────────────────────────────────────
+\usepackage[a4paper, margin=1.8cm, columnsep=0.6cm]{geometry}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+
+% ── Typography tuning ────────────────────────────────────────────────────────
+\titlespacing*{\section}{0pt}{6pt}{3pt}
+\titlespacing*{\subsection}{0pt}{4pt}{2pt}
+\setlength{\parskip}{3pt}
+\setlength{\parindent}{0pt}
+\captionsetup{font=small, labelfont=bf, skip=4pt}
+
+% ── Header / footer ──────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small Interactive Machine Learning}
+\fancyhead[R]{\small 2025--2026}
+\fancyfoot[C]{\small\thepage}
+
+% ── Metadata ─────────────────────────────────────────────────────────────────
+\title{\textbf{BottleWise: An Interactive ML System for\\
+Alcohol Recognition with Human-in-the-Loop Correction}}
+\author{%
+  Interactive Machine Learning Course Report
+}
+\date{}
+
+% ── Document ─────────────────────────────────────────────────────────────────
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+\vspace{-10pt}
+
+%─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+%─────────────────────────────────────────────────────────────────────────────
+
+Identifying an unfamiliar alcoholic beverage is a concrete challenge for
+travelers, international students, and immigrants who encounter products whose
+labels are written in a language they cannot read.
+Standard machine-learning pipelines address this with a single-shot
+prediction—an output that arrives without explanation and leaves the user
+with no recourse if it is wrong.
+We argue that this is especially unsuitable in the alcohol domain: the
+consequences of a misclassification are asymmetric.
+Mistaking a non-alcoholic drink for an alcoholic one (false positive) is an
+inconvenience; mistaking an alcoholic drink for a non-alcoholic one (false
+negative) carries genuine safety risk, particularly for underage users.
+
+\textbf{BottleWise} departs from the black-box paradigm by placing the user
+at every decision point.
+Rather than returning a single answer, the system walks the user through a
+multi-step process: the model predicts, exposes its uncertainty, and waits
+for the user to inspect and accept or reject the result before any downstream
+action—such as querying a large language model (LLM)—is taken.
+Incorrect predictions are corrected in-app, and the corrected examples are
+immediately used to retrain the classifier, closing a human-in-the-loop
+feedback cycle within the same session.
+
+The application runs entirely in the browser using Marcelle~\cite{marcelle}
+and TensorFlow.js, requiring no server and no data upload.
+
+%─────────────────────────────────────────────────────────────────────────────
+\section{Scenario and Users}
+%─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Context of Use}
+
+The primary context is \emph{in-store or on-the-go}: a user photographs a
+bottle or can, and the system classifies it while communicating uncertainty
+in plain language.
+The workflow is intentionally short (six wizard steps) to fit a transient,
+mobile-style interaction in a shop aisle or at a restaurant table.
+
+\subsection{Primary Users}
+
+The primary users are \textbf{non-native speakers}—international students,
+tourists, and immigrants—who can photograph a label but cannot read it.
+Their domain expertise in alcohol is low to moderate; their motivation is
+practical (``is this safe to drink?'', ``will I like this?'').
+A critical sub-group is \textbf{underage users}: because they may be unaware
+of local alcohol regulations, a false negative (a mislabeled alcoholic drink)
+is a high-severity failure that must be flagged explicitly regardless of model
+confidence.
+
+\subsection{Secondary Stakeholders}
+
+Retailers benefit from customers who can independently navigate product
+categories without staff assistance.
+HCI researchers and educators may use the system as a case study of
+transparent, uncertainty-aware interactive ML.
+
+\subsection{Relevance to Interactive ML}
+
+Prior work on interactive machine learning~\cite{fails2003interactive}
+emphasizes that non-expert users can improve model accuracy when given
+simple, structured feedback mechanisms.
+Settles~\cite{settles2010active} showed that active learning—selecting
+informative examples for labeling—substantially reduces the annotation
+burden.
+Amershi et al.~\cite{amershi2014power} demonstrated that users who
+participate in the training loop develop better mental models of the
+system's behavior.
+Our design instantiates these principles: the KNN correction loop is a
+lightweight active-learning mechanism that adds the most informative
+example at each session (the one the model got wrong).
+
+%─────────────────────────────────────────────────────────────────────────────
+\section{Application Design}
+%─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Workflow}
+
+The application is organized as a six-page \emph{wizard} (Fig.~\ref{fig:workflow}).
+Each page corresponds to a discrete step; the user must complete each step
+before advancing.
+
+\begin{enumerate}[leftmargin=*, label=\textbf{P\arabic*.}, itemsep=1pt,
+                  topsep=2pt]
+  \item \textbf{Taste Profile (Welcome).}
+        Three binary preference selectors—Strength, Sweetness, Flavor—auto-saved
+        to \texttt{localStorage}.
+        Values are injected into the Gemini prompt at enrichment time.
+
+  \item \textbf{Label Examples (Training).}
+        The user uploads images and assigns labels from a 26-class vocabulary
+        (whiskies, wines, beers, spirits, Asian spirits, and a dedicated
+        \emph{Non-alcoholic} class).
+        Feature vectors are extracted by MobileNet~v2 and stored in a
+        \texttt{dataset} backed by \texttt{localStorage}.
+
+  \item \textbf{Train the KNN.}
+        A \(k\!=\!3\) KNN classifier is trained on the labeled feature
+        vectors.
+        A \texttt{trainingPlot} widget gives live feedback during training.
+        This step is optional: the pretrained MobileNet path requires no
+        prior training.
+
+  \item \textbf{Identify a Beverage.}
+        The user uploads a photo and chooses between two classifiers:
+        \emph{Quick Identify} (pretrained MobileNet, ImageNet labels) or
+        \emph{Custom KNN} (user-trained labels).
+        Both produce a prediction immediately.
+
+  \item \textbf{Review Results (Uncertainty Visualization).}
+        Both models' outputs appear on a single page with confidence meters,
+        tier messages, and a false-negative / false-positive explainer table
+        visible at all times.
+        The LLM is \emph{not} called at this stage.
+
+  \item \textbf{Decision and Enrichment.}
+        Three action buttons—\emph{Accept}, \emph{Flag as Uncertain},
+        \emph{Retake Photo}—give the user full agency.
+        Accepting triggers the Gemini enrichment (gated on confidence
+        \(\geq\) 60\% and a non-``Non-alcoholic'' prediction).
+        An always-visible correction panel lets the user supply the true
+        label; the KNN retrains immediately upon submission.
+\end{enumerate}
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=\linewidth]{screenshot_review.png}
+  \caption{Step~4 \emph{Review Results}: confidence meter (color-coded
+           low/medium/high zones), false-negative alert panel, and the
+           FP/FN explainer table. Both model results are shown
+           side-by-side before the user makes a decision.}
+  \label{fig:ui}
+\end{figure}
+
+\subsection{Uncertainty Visualization}
+
+The Review page (Step~4) is the core contribution of the system.
+It surfaces three layers of uncertainty information that non-expert users
+can act on:
+
+\begin{itemize}[leftmargin=*, itemsep=1pt, topsep=2pt]
+  \item \textbf{Confidence meter.} A three-zone progress bar (red / orange /
+        green) spanning $[0\%, 100\%]$ with vertical dividers at the 60\%
+        and 85\% thresholds.
+        Color and a plain-language label (\textsc{low} / \textsc{moderate} /
+        \textsc{high} confidence) communicate the zone without requiring
+        the user to interpret raw probabilities.
+
+  \item \textbf{FP/FN explainer.} A static table present on every visit to
+        Step~4 defines \emph{false positive} and \emph{false negative} in
+        domain language (``AI says Has alcohol / Reality: No alcohol'')
+        with a severity column that calls out the higher risk of false
+        negatives for under-18 users.
+
+  \item \textbf{Alert panels.} Dynamic panels—rendered in red for false
+        negatives and orange for low-confidence non-false-negative
+        predictions—appear directly below the confidence meter.
+        The false-negative panel includes step-by-step instructions for
+        manual label verification (look for the ABV percentage on the
+        bottle).
+\end{itemize}
+
+\subsection{Active Learning Correction Loop}
+
+The correction panel (always visible on Step~5) implements a minimal active
+learning loop:
+
+\begin{enumerate}[leftmargin=*, itemsep=1pt, topsep=2pt]
+  \item User selects the correct label from the full 26-class vocabulary.
+  \item The current prediction image is re-processed through MobileNet~v2
+        to extract its feature vector.
+  \item A new labeled example is appended to \texttt{trainingSet} in
+        \texttt{localStorage}.
+  \item The KNN classifier retrains synchronously in the browser.
+\end{enumerate}
+
+The latency for steps 2--4 on a modern laptop is under one second,
+making the feedback loop feel immediate.
+
+\subsection{LLM Enrichment}
+
+Accepted predictions invoke the Gemini API with a structured prompt that
+requests: category, origin, typical ABV, description, food pairings, and a
+safe-consumption note.
+The prompt includes the taste profile as a natural-language preamble
+(``The user prefers mild, sweet, and fruity drinks''), causing the
+description and pairings to reflect the user's stated preferences.
+A model cascade (\texttt{gemini-2.0-flash} → \texttt{gemini-2.0-flash-lite}
+→ \ldots) handles rate-limit (HTTP 429/503) responses transparently.
+
+%─────────────────────────────────────────────────────────────────────────────
+\section{Implementation}
+%─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Stack}
+
+The application is a single JavaScript file
+(\texttt{marcelle-app/src/index.js}, $\approx$900 lines) built on the
+Marcelle framework~\cite{marcelle} v0.6.5.
+All ML inference runs in the browser via TensorFlow.js; no data leaves the
+user's device.
+
+\begin{table}[!h]
+  \centering
+  \small
+  \caption{Key technical components.}
+  \label{tab:stack}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Component} & \textbf{Implementation} \\
+    \midrule
+    Feature extraction & MobileNet~v2 ($\alpha\!=\!1$, 224$\times$224 px) \\
+    Classifier        & KNN ($k\!=\!3$), Marcelle \texttt{knnClassifier} \\
+    Pretrained path   & Raw TF.js \texttt{loadMobileNet}, top-20 ImageNet \\
+    Training storage  & Marcelle \texttt{dataStore('localStorage')} \\
+    UI framework      & Marcelle \texttt{wizard()}, reactive streams \\
+    LLM               & Google Gemini API (model cascade) \\
+    Build tool        & Vite (run: \texttt{npm run dev}) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Dataset}
+
+There is no pre-collected dataset shipped with the application.
+Instead, \textbf{users construct the training set} during the labeling step.
+Each uploaded image is processed through MobileNet~v2; the resulting
+1280-dimensional feature vector and thumbnail are stored in
+\texttt{localStorage} under the key \texttt{alcohol-training}.
+The store persists across page refreshes, so examples accumulate over
+multiple sessions.
+
+For the pretrained classification path, the application queries the full
+top-20 ImageNet probability distribution and filters it against a
+manually curated list of 25 alcohol-related keywords.
+Non-alcohol ImageNet classes are collapsed into a single
+\emph{Other / Non-beverage} bar in the confidence chart, keeping the
+visualization focused on the decision the user actually needs to make.
+
+\subsection{Label Vocabulary}
+
+The 26-class vocabulary was designed to balance coverage with usability:
+\begin{itemize}[leftmargin=*, itemsep=0pt, topsep=2pt]
+  \item \textbf{Whiskies:} Scotch, Bourbon, Irish, Japanese
+  \item \textbf{Wines:} Red, White, Rosé, Champagne, Prosecco, Port
+  \item \textbf{Beers:} Lager, Craft Beer/IPA, Stout
+  \item \textbf{Spirits:} Vodka, Gin, Tequila, Mezcal, Rum, Brandy/Cognac, Absinthe
+  \item \textbf{Asian spirits:} Sake, Soju, Baijiu
+  \item \textbf{Other:} Liqueur, Cider, \textbf{Non-alcoholic}
+\end{itemize}
+The \emph{Non-alcoholic} class is treated as a first-class label so that
+false negatives surface as an explicit KNN prediction rather than the absence
+of a prediction.
+
+\subsection{State of Implementation}
+
+The full six-step wizard is functional end-to-end.
+Table~\ref{tab:status} summarizes the implementation status of each
+planned feature.
+
+\begin{table}[!h]
+  \centering
+  \small
+  \caption{Feature implementation status.}
+  \label{tab:status}
+  \begin{tabular}{lc}
+    \toprule
+    \textbf{Feature} & \textbf{Status} \\
+    \midrule
+    KNN training loop               & \checkmark\ Complete \\
+    Pretrained MobileNet path       & \checkmark\ Complete \\
+    Confidence meter (3-zone)       & \checkmark\ Complete \\
+    FP/FN explainer + alert panels  & \checkmark\ Complete \\
+    User decision gate (Accept/Flag)& \checkmark\ Complete \\
+    Active learning correction      & \checkmark\ Complete \\
+    Taste profile (localStorage)    & \checkmark\ Complete \\
+    Gemini enrichment + cascade     & \checkmark\ Complete \\
+    Personalized LLM output tag     & \checkmark\ Complete \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Known limitations: the pretrained path relies on ImageNet classes, which
+do not include fine-grained brand distinctions (e.g., distinguishing a
+specific single-malt from a blended Scotch).
+The KNN path can achieve higher specificity once the user has labeled
+sufficient examples, but requires an initial annotation investment.
+
+%─────────────────────────────────────────────────────────────────────────────
+\section{Proposed Evaluation}
+%─────────────────────────────────────────────────────────────────────────────
+
+We propose a \textbf{mixed-methods lab study} with two conditions:
+(A) the full BottleWise interface and (B) a \emph{baseline} variant in which
+confidence scores are hidden and the user must accept every prediction
+without the ability to flag or correct.
+
+\paragraph{Participants.}
+12--16 non-native speakers with low-to-moderate familiarity with the local
+alcohol market, recruited from international student networks.
+Recruiting from this population ensures ecological validity.
+
+\paragraph{Task.}
+Participants are shown 10 beverage images (selected to span high and low
+model confidence, and to include at least one false-negative case—an
+alcoholic drink the model predicts as Non-alcoholic).
+They use the app to identify each beverage and record their final decision.
+
+\paragraph{Measures.}
+\begin{itemize}[leftmargin=*, itemsep=1pt, topsep=2pt]
+  \item \textbf{Decision accuracy} (primary): proportion of beverages
+        correctly identified as alcoholic vs.\ non-alcoholic, compared
+        between conditions.
+        We are especially interested in \emph{false-negative catch rate}:
+        the proportion of the seeded false-negative cases that participants
+        correctly identified as ``uncertain / needs checking'' rather than
+        accepting the wrong prediction.
+  \item \textbf{Appropriate trust} (Likert): ``The AI is honest about when
+        it is unsure'' (5-point scale), adapted from the
+        Explainability Satisfaction Scale~\cite{hoffman2018}.
+  \item \textbf{Correction loop engagement}: number of corrections submitted
+        per session, and the resulting change in KNN accuracy on the next
+        identification within the same session.
+  \item \textbf{Task completion time} and \textbf{step abandonment rate}.
+\end{itemize}
+
+\paragraph{Protocol.}
+5-minute onboarding; 20-minute task; 10-minute semi-structured interview
+probing mental models of uncertainty (``What did the red bar mean to you?'',
+``When would you trust the result?'').
+Sessions are screen-recorded; think-aloud is encouraged.
+
+\paragraph{Analysis.}
+Decision accuracy and false-negative catch rate are compared between
+conditions using a Mann-Whitney U test (non-parametric, expected $n < 20$).
+Likert responses are compared with a Wilcoxon signed-rank test.
+Interview transcripts are thematically coded for (1) uncertainty comprehension,
+(2) trust calibration, and (3) perceived agency.
+
+The study is designed to answer the core research question: \emph{does
+exposing model uncertainty in plain language improve users' ability to detect
+high-risk misclassifications without eroding trust in correct predictions?}
+
+%─────────────────────────────────────────────────────────────────────────────
+\section{Conclusion}
+%─────────────────────────────────────────────────────────────────────────────
+
+BottleWise demonstrates that interactive ML design principles—uncertainty
+transparency, user agency, and human-in-the-loop correction—can be applied
+in a practical consumer scenario with genuine safety implications.
+The system is fully implemented in the browser with no server dependency,
+making it deployable without infrastructure.
+The central design contribution is the \emph{uncertainty gate}: no LLM
+enrichment fires until the user has reviewed the model's confidence and
+actively accepted the prediction, ensuring that the most dangerous
+failure mode (a false negative on alcohol content) is surfaced to the user
+before they act on it.
+
+%─────────────────────────────────────────────────────────────────────────────
+% References
+%─────────────────────────────────────────────────────────────────────────────
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+
+\bibitem{marcelle}
+Caramiaux, B., Françoise, J., Fdili Alaoui, S., and Mackay, W.~E. (2022).
+\newblock Marcelle: Composing interactive machine learning workflows and
+  interfaces.
+\newblock In \textit{Proc.\ ACM UIST}.
+
+\bibitem{fails2003interactive}
+Fails, J.~A. and Olsen, D.~R. (2003).
+\newblock Interactive machine learning.
+\newblock In \textit{Proc.\ ACM IUI}, pages 39--45.
+
+\bibitem{settles2010active}
+Settles, B. (2010).
+\newblock Active learning literature survey.
+\newblock Technical Report 1648, University of Wisconsin–Madison.
+
+\bibitem{amershi2014power}
+Amershi, S., Cakmak, M., Knox, W.~B., and Kulesza, T. (2014).
+\newblock Power to the people: The role of humans in interactive machine
+  learning.
+\newblock \textit{AI Magazine}, 35(4):105--120.
+
+\bibitem{hoffman2018}
+Hoffman, R.~R., Mueller, S.~T., Klein, G., and Litman, J. (2018).
+\newblock Metrics for explainable AI: Challenges and prospects.
+\newblock \textit{arXiv:1812.04608}.
+
+\end{thebibliography}
+
+\end{document}
