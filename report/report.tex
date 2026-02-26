@@ -11,6 +11,7 @@
 \usepackage{caption}
 \usepackage{xcolor}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
 \usepackage{parskip}
@@ -53,8 +54,8 @@ Identifying an unfamiliar alcoholic beverage is a concrete challenge for
 travelers, international students, and immigrants who encounter products whose
 labels are written in a language they cannot read.
 Standard machine-learning pipelines address this with a single-shot
-prediction—an output that arrives without explanation and leaves the user
-with no recourse if it is wrong.
+prediction. This output often arrives without explanation and gives the user
+little way to respond if it is wrong.
 We argue that this is especially unsuitable in the alcohol domain: the
 consequences of a misclassification are asymmetric.
 Mistaking a non-alcoholic drink for an alcoholic one (false positive) is an
@@ -66,7 +67,7 @@ at every decision point.
 Rather than returning a single answer, the system walks the user through a
 multi-step process: the model predicts, exposes its uncertainty, and waits
 for the user to inspect and accept or reject the result before any downstream
-action—such as querying a large language model (LLM)—is taken.
+action, such as querying a large language model (LLM), is taken.
 Incorrect predictions are corrected in-app, and the corrected examples are
 immediately used to retrain the classifier, closing a human-in-the-loop
 feedback cycle within the same session.
@@ -88,8 +89,9 @@ mobile-style interaction in a shop aisle or at a restaurant table.
 
 \subsection{Primary Users}
 
-The primary users are \textbf{non-native speakers}—international students,
-tourists, and immigrants—who can photograph a label but cannot read it.
+The primary users are \textbf{non-native speakers}, including international
+students, tourists, and immigrants, who can photograph a label but cannot
+read it.
 Their domain expertise in alcohol is low to moderate; their motivation is
 practical (``is this safe to drink?'', ``will I like this?'').
 A critical sub-group is \textbf{underage users}: because they may be unaware
@@ -109,13 +111,13 @@ transparent, uncertainty-aware interactive ML.
 Prior work on interactive machine learning~\cite{fails2003interactive}
 emphasizes that non-expert users can improve model accuracy when given
 simple, structured feedback mechanisms.
-Settles~\cite{settles2010active} showed that active learning—selecting
-informative examples for labeling—substantially reduces the annotation
+Settles~\cite{settles2010active} showed that active learning, which selects
+informative examples for labeling, substantially reduces the annotation
 burden.
-Amershi et al.~\cite{amershi2014power} demonstrated that users who
-participate in the training loop develop better mental models of the
-system's behavior.
-Our design instantiates these principles: the KNN correction loop is a
+Amershi et al.~\cite{amershi2014power} argued that involving users
+throughout the interactive machine-learning loop improves both system
+effectiveness and user experience.
+Our design follows these principles: the KNN correction loop is a
 lightweight active-learning mechanism that adds the most informative
 example at each session (the one the model got wrong).
 
@@ -125,14 +127,14 @@ example at each session (the one the model got wrong).
 
 \subsection{Workflow}
 
-The application is organized as a six-page \emph{wizard} (Fig.~\ref{fig:workflow}).
+The application is organized as a six-page \emph{wizard} (Fig.~\ref{fig:ui}).
 Each page corresponds to a discrete step; the user must complete each step
 before advancing.
 
 \begin{enumerate}[leftmargin=*, label=\textbf{P\arabic*.}, itemsep=1pt,
                   topsep=2pt]
   \item \textbf{Taste Profile (Welcome).}
-        Three binary preference selectors—Strength, Sweetness, Flavor—auto-saved
+        Three binary preference selectors (Strength, Sweetness, Flavor) are auto-saved
         to \texttt{localStorage}.
         Values are injected into the Gemini prompt at enrichment time.
 
@@ -163,9 +165,9 @@ before advancing.
         The LLM is \emph{not} called at this stage.
 
   \item \textbf{Decision and Enrichment.}
-        Three action buttons—\emph{Accept}, \emph{Flag as Uncertain},
-        \emph{Retake Photo}—give the user full agency.
-        Accepting triggers the Gemini enrichment (gated on confidence
+        Three action buttons (\emph{Accept}, \emph{Flag as Uncertain},
+        \emph{Retake Photo}) give the user full agency.
+        Accepting triggers the Gemini enrichment (only when confidence
         \(\geq\) 60\% and a non-``Non-alcoholic'' prediction).
         An always-visible correction panel lets the user supply the true
         label; the KNN retrains immediately upon submission.
@@ -173,7 +175,13 @@ before advancing.
 
 \begin{figure}[!h]
   \centering
-  \includegraphics[width=\linewidth]{screenshot_review.png}
+  \IfFileExists{media/Screenshot 2026-02-26 at 23.39.02.png}{%
+    \includegraphics[width=0.82\linewidth]{media/Screenshot 2026-02-26 at 23.39.02.png}%
+  }{%
+    \fbox{\parbox[c][3.2cm][c]{0.96\linewidth}{\centering
+      Placeholder for review-step screenshot\\
+      (file \texttt{media/Screenshot 2026-02-26 at 23.39.02.png} not found).}}%
+  }
   \caption{Step~4 \emph{Review Results}: confidence meter (color-coded
            low/medium/high zones), false-negative alert panel, and the
            FP/FN explainer table. Both model results are shown
@@ -201,9 +209,9 @@ can act on:
         with a severity column that calls out the higher risk of false
         negatives for under-18 users.
 
-  \item \textbf{Alert panels.} Dynamic panels—rendered in red for false
+  \item \textbf{Alert panels.} Dynamic panels, rendered in red for false
         negatives and orange for low-confidence non-false-negative
-        predictions—appear directly below the confidence meter.
+        predictions, appear directly below the confidence meter.
         The false-negative panel includes step-by-step instructions for
         manual label verification (look for the ABV percentage on the
         bottle).
@@ -347,11 +355,10 @@ without the ability to flag or correct.
 \paragraph{Participants.}
 12--16 non-native speakers with low-to-moderate familiarity with the local
 alcohol market, recruited from international student networks.
-Recruiting from this population ensures ecological validity.
 
 \paragraph{Task.}
 Participants are shown 10 beverage images (selected to span high and low
-model confidence, and to include at least one false-negative case—an
+model confidence, and to include at least one false-negative case: an
 alcoholic drink the model predicts as Non-alcoholic).
 They use the app to identify each beverage and record their final decision.
 
@@ -374,10 +381,9 @@ They use the app to identify each beverage and record their final decision.
 \end{itemize}
 
 \paragraph{Protocol.}
-5-minute onboarding; 20-minute task; 10-minute semi-structured interview
+5-minute onboarding, 20-minute task, and 10-minute interview
 probing mental models of uncertainty (``What did the red bar mean to you?'',
 ``When would you trust the result?'').
-Sessions are screen-recorded; think-aloud is encouraged.
 
 \paragraph{Analysis.}
 Decision accuracy and false-negative catch rate are compared between
@@ -394,9 +400,9 @@ high-risk misclassifications without eroding trust in correct predictions?}
 \section{Conclusion}
 %─────────────────────────────────────────────────────────────────────────────
 
-BottleWise demonstrates that interactive ML design principles—uncertainty
-transparency, user agency, and human-in-the-loop correction—can be applied
-in a practical consumer scenario with genuine safety implications.
+BottleWise shows that interactive ML principles, including uncertainty
+transparency, user agency, and human-in-the-loop correction, can be applied
+in a practical consumer app with real safety implications.
 The system is fully implemented in the browser with no server dependency,
 making it deployable without infrastructure.
 The central design contribution is the \emph{uncertainty gate}: no LLM
@@ -409,35 +415,6 @@ before they act on it.
 % References
 %─────────────────────────────────────────────────────────────────────────────
 \bibliographystyle{plain}
-\begin{thebibliography}{9}
-
-\bibitem{marcelle}
-Caramiaux, B., Françoise, J., Fdili Alaoui, S., and Mackay, W.~E. (2022).
-\newblock Marcelle: Composing interactive machine learning workflows and
-  interfaces.
-\newblock In \textit{Proc.\ ACM UIST}.
-
-\bibitem{fails2003interactive}
-Fails, J.~A. and Olsen, D.~R. (2003).
-\newblock Interactive machine learning.
-\newblock In \textit{Proc.\ ACM IUI}, pages 39--45.
-
-\bibitem{settles2010active}
-Settles, B. (2010).
-\newblock Active learning literature survey.
-\newblock Technical Report 1648, University of Wisconsin–Madison.
-
-\bibitem{amershi2014power}
-Amershi, S., Cakmak, M., Knox, W.~B., and Kulesza, T. (2014).
-\newblock Power to the people: The role of humans in interactive machine
-  learning.
-\newblock \textit{AI Magazine}, 35(4):105--120.
-
-\bibitem{hoffman2018}
-Hoffman, R.~R., Mueller, S.~T., Klein, G., and Litman, J. (2018).
-\newblock Metrics for explainable AI: Challenges and prospects.
-\newblock \textit{arXiv:1812.04608}.
-
-\end{thebibliography}
+\bibliography{sample}
 
 \end{document}
