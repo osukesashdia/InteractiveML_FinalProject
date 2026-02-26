@@ -108,7 +108,34 @@ InteractiveML/
 │   ├── index.html
 │   ├── package.json
 │   └── .env               # VITE_GEMINI_API_KEY goes here
+├── report/
+│   ├── report.tex          # Course report source (LaTeX)
+│   ├── sample.bib          # Bibliography entries
+│   ├── media/              # Figures/screenshots used in the report
+│   └── report.pdf          # Compiled report output
 └── README.md
+```
+
+---
+
+## Report (LaTeX)
+
+The project report is in `report/report.tex` and uses BibTeX via `report/sample.bib`.
+
+### Compile the report
+
+```bash
+cd report
+latexmk -pdf -interaction=nonstopmode report.tex
+```
+
+The compiled file is written to `report/report.pdf`.
+
+To clean LaTeX build artifacts:
+
+```bash
+cd report
+latexmk -c
 ```
 
 ---
