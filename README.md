@@ -122,23 +122,6 @@ InteractiveML/
 
 The project report is in `report/report.tex` and uses BibTeX via `report/sample.bib`.
 
-### Compile the report
-
-```bash
-cd report
-latexmk -pdf -interaction=nonstopmode report.tex
-```
-
-The compiled file is written to `report/report.pdf`.
-
-To clean LaTeX build artifacts:
-
-```bash
-cd report
-latexmk -c
-```
-
----
 
 ## Build for production
 

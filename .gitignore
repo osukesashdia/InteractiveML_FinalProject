@@ -36,3 +36,4 @@ marcelle-app/.env.local
 # Logs
 *.log
 npm-debug.log*
+report/
