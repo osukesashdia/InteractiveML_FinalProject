@@ -1,4 +1,5 @@
 # Node / Marcelle frontend
+node_modules/
 marcelle-app/node_modules/
 marcelle-app/dist/
 
