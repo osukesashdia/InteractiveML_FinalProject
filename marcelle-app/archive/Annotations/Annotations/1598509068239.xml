@@ -1,0 +1,33 @@
+<annotation>
+  <folder></folder>
+  <filename>1598509068239.jpg</filename>
+  <source>
+    <database>Unknown</database>
+    <annotation>Unknown</annotation>
+    <image>Unknown</image>
+  </source>
+  <size>
+    <width>3120</width>
+    <height>4160</height>
+    <depth></depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>alcohol_bottle</name>
+    <truncated>0</truncated>
+    <occluded>0</occluded>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>1026.72</xmin>
+      <ymin>663.25</ymin>
+      <xmax>1827.58</xmax>
+      <ymax>3211.45</ymax>
+    </bndbox>
+    <attributes>
+      <attribute>
+        <name>rotation</name>
+        <value>0.0</value>
+      </attribute>
+    </attributes>
+  </object>
+</annotation>

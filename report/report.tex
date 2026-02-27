@@ -142,12 +142,25 @@ before advancing.
         The user uploads images and assigns labels from a 26-class vocabulary
         (whiskies, wines, beers, spirits, Asian spirits, and a dedicated
         \emph{Non-alcoholic} class).
-        Feature vectors are extracted by MobileNet~v2 and stored in a
-        \texttt{dataset} backed by \texttt{localStorage}.
+        Each image is passed through MobileNet~v2 \emph{as a feature
+        extractor}: the network's final classification head is removed,
+        and the activations of the penultimate layer are read out instead.
+        The result is a \textbf{1280-dimensional numeric vector} --- a
+        compact, fixed-length description of the visual content of the image
+        (shape, texture, colour gradients, edge patterns) that MobileNet
+        learned to produce during pre-training on 1.2~million ImageNet
+        images.
+        Visually similar images produce numerically similar vectors; this is
+        the property the KNN classifier exploits.
+        These vectors, together with the user-assigned labels, are stored
+        in a \texttt{dataset} backed by \texttt{localStorage}.
 
   \item \textbf{Train the KNN.}
-        A \(k\!=\!3\) KNN classifier is trained on the labeled feature
-        vectors.
+        A \(k\!=\!3\) nearest-neighbour classifier is trained on the
+        labeled 1280-dimensional vectors.
+        At inference time it finds the three stored vectors closest to the
+        query image's vector (by Euclidean distance) and majority-votes
+        their labels.
         A \texttt{trainingPlot} widget gives live feedback during training.
         This step is optional: the pretrained MobileNet path requires no
         prior training.
@@ -279,17 +292,77 @@ user's device.
 
 \subsection{Dataset}
 
-There is no pre-collected dataset shipped with the application.
-Instead, \textbf{users construct the training set} during the labeling step.
+\paragraph{User-constructed training set.}
+By default, \textbf{users construct the training set themselves} during the
+labeling step (Step~1).
 Each uploaded image is processed through MobileNet~v2; the resulting
-1280-dimensional feature vector and thumbnail are stored in
-\texttt{localStorage} under the key \texttt{alcohol-training}.
+1280-dimensional feature vector and a 64$\times$64\,px JPEG thumbnail are
+stored in \texttt{localStorage} under the key \texttt{alcohol-training}.
 The store persists across page refreshes, so examples accumulate over
 multiple sessions.
 
-For the pretrained classification path, the application queries the full
-top-20 ImageNet probability distribution and filters it against a
-manually curated list of 25 alcohol-related keywords.
+\paragraph{Kaggle Alcohol Image Dataset (bootstrap).}
+To lower the annotation barrier and let users start with a functional KNN
+immediately, the application ships with the
+\emph{Alcohol Image Dataset}\footnote{%
+  \url{https://www.kaggle.com/datasets/sripaadsrinivasan/alcohol-image-dataset}}
+from Kaggle.
+The dataset contains \textbf{141~JPEG photographs} of alcohol bottles
+captured in varied retail environments, accompanied by
+\textbf{141~Pascal~VOC XML annotations} (one per image) that provide
+per-object bounding boxes; all objects share the single class label
+\texttt{alcohol\_bottle}.
+One annotation file lacks an \texttt{<object>} element and is discarded,
+leaving \textbf{140 usable image--annotation pairs}.
+
+Image resolutions range from 150$\times$299 to 6\,936$\times$9\,248.
+Bounding-box coverage varies widely: the annotated bottle region occupies
+between 3.9\% and 95.7\% of the image area (mean 35.9\%), reflecting a mix
+of tightly cropped product shots and wide-angle shelf photos.
+
+\paragraph{Preprocessing pipeline.}
+A one-click \emph{Load Kaggle Dataset} button on the labeling page triggers
+the following pipeline for each entry in a precomputed
+\texttt{manifest.json}:
+
+\begin{enumerate}[leftmargin=*, itemsep=1pt, topsep=2pt]
+  \item \textbf{Crop.} The image is loaded in the browser, cropped to its
+        bounding box, and rescaled to 224$\times$224\,px on a
+        \texttt{<canvas>}.
+  \item \textbf{Auto-label.} A raw TensorFlow.js MobileNet~v2 instance
+        classifies the cropped region, returning the top-10 ImageNet
+        predictions.
+        A two-pass heuristic scans these predictions:
+        \begin{itemize}[leftmargin=*, itemsep=0pt, topsep=1pt]
+          \item Generic container labels (\emph{pop bottle}, \emph{water
+                bottle}, \emph{vase}, etc.\ --- 22 entries) are skipped.
+          \item The first prediction that matches an explicit
+                ImageNet\,$\to$\,alcohol-label mapping (21 entries, e.g.\
+                \texttt{wine bottle}$\to$\texttt{Red Wine},
+                \texttt{beer bottle}$\to$\texttt{Lager}) determines the
+                label.
+          \item If no mapping matches, alcohol-keyword detection
+                (25~keywords) assigns the fallback label \texttt{Liqueur}.
+        \end{itemize}
+        Because every image in the dataset depicts an alcohol bottle,
+        the heuristic never assigns \emph{Non-alcoholic}.
+  \item \textbf{Feature extraction.} The Marcelle MobileNet~v2 feature
+        extractor produces a 1280-dimensional vector from the same
+        224$\times$224 canvas.
+  \item \textbf{Storage.} The feature vector, auto-assigned label, and a
+        64$\times$64 thumbnail are written to the \texttt{trainingSet}
+        in \texttt{localStorage}.
+\end{enumerate}
+
+Images are processed in batches of five to avoid blocking the browser event
+loop; a progress bar shows completion status.
+After loading, the user can review and manually correct any mislabeled
+examples in the dataset browser before training.
+
+\paragraph{Pretrained classification path.}
+For the pretrained (non-KNN) path, the application queries the full top-20
+ImageNet probability distribution and filters it against the same curated
+list of 25 alcohol-related keywords.
 Non-alcohol ImageNet classes are collapsed into a single
 \emph{Other / Non-beverage} bar in the confidence chart, keeping the
 visualization focused on the decision the user actually needs to make.

@@ -3,8 +3,118 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Beverage Identifier</title>
-    <script type="module" crossorigin src="/assets/index-DVfxJsUj.js"></script>
+    <title>Beverage Identifier — Interactive ML</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+        min-height: 100vh;
+        color: #2c3e50;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Marcelle wizard container polish */
+      .marcelle .wizard {
+        max-width: 920px;
+        margin: 24px auto;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+        overflow: hidden;
+      }
+
+      /* Wizard step header bar */
+      .marcelle .wizard .wizard-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #fff;
+      }
+
+      /* Step indicator pills */
+      .marcelle .wizard .wizard-header .steps .step {
+        font-weight: 500;
+        letter-spacing: 0.01em;
+      }
+
+      /* Page title */
+      .marcelle .wizard .wizard-body h2 {
+        font-weight: 700;
+        font-size: 1.35rem;
+        color: #1a1a2e;
+        margin-bottom: 4px;
+      }
+
+      /* Page description */
+      .marcelle .wizard .wizard-body .description {
+        font-size: 0.92rem;
+        line-height: 1.55;
+        color: #555;
+      }
+
+      /* Buttons — primary action color */
+      .marcelle button, .marcelle .button {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        border-radius: 8px;
+        padding: 10px 20px;
+        transition: transform 0.1s, box-shadow 0.15s;
+        letter-spacing: 0.01em;
+      }
+      .marcelle button:hover, .marcelle .button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      }
+      .marcelle button:active, .marcelle .button:active {
+        transform: translateY(0);
+      }
+
+      /* Select dropdowns */
+      .marcelle select {
+        font-family: 'Inter', sans-serif;
+        border-radius: 8px;
+        padding: 8px 12px;
+        border: 1.5px solid #d0d5dd;
+        transition: border-color 0.15s;
+      }
+      .marcelle select:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+      }
+
+      /* Confidence plot bars — rounder */
+      .marcelle .confidence-plot .bar {
+        border-radius: 4px;
+      }
+
+      /* Wizard navigation buttons */
+      .marcelle .wizard .wizard-footer button {
+        border-radius: 8px;
+        font-weight: 600;
+      }
+
+      /* Cards / info panels — shared style for text() components */
+      .marcelle .text-component {
+        line-height: 1.55;
+      }
+
+      /* Smooth scroll for wizard body */
+      .marcelle .wizard .wizard-body {
+        scroll-behavior: smooth;
+      }
+
+      /* Dataset browser thumbnails */
+      .marcelle .dataset-browser img {
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-BYNCVLff.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DGtkPQtU.css">
   </head>
   <body>
